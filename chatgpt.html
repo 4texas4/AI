@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Groq Quick Chat</title>
+<style>
+  :root{
+    --bg:#071022; --panel:#0f1724; --muted:#93a1b1; --accent:#4f9bff;
+    --bubble-user:linear-gradient(180deg,#153b6e,#0e2b54);
+    --bubble-ai:linear-gradient(180deg,#0f1724,#091122);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    min-height:100vh;
+    background: var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+
+  /* container */
+  .frame {
+    width:100%;
+    max-width:880px;
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:12px;
+    align-items:start;
+  }
+
+  /* API key entry screen (centered simple) */
+  .key-screen {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:60vh;
+  }
+  .key-box {
+    width:100%;
+    max-width:520px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    border-radius:12px;
+    padding:22px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .simple-label{ color:var(--muted); font-size:13px; margin:0 2px 0 2px; }
+  input.apikey {
+    width:100%;
+    padding:14px;
+    font-size:16px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.04);
+    background:#071224;
+    color:inherit;
+    outline:none;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+  }
+  .next-btn{
+    background:var(--accent);
+    color:white;
+    border:0;
+    padding:10px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+    font-size:15px;
+  }
+
+  /* chat screen */
+  .chat-panel {
+    display:flex;
+    flex-direction:column;
+    height:78vh;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border:1px solid rgba(255,255,255,0.03);
+    border-radius:12px;
+    padding:12px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+  }
+  .chat-top {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding-bottom:8px;
+  }
+  .title { font-weight:700; font-size:16px; color:#eaf4ff; }
+  .top-controls { display:flex; gap:8px; align-items:center; }
+  .reset-btn {
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.04);
+    color:var(--muted);
+    padding:8px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+  }
+
+  #messages {
+    flex:1;
+    overflow:auto;
+    padding:12px;
+    border-radius:10px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.003), rgba(255,255,255,0.001));
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .msg {
+    max-width:86%;
+    padding:10px 12px;
+    margin-bottom:10px;
+    border-radius:12px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  }
+  .msg.user{
+    margin-left:auto;
+    background:var(--bubble-user);
+    color:#dff4ff;
+    border:1px solid rgba(80,160,255,0.12);
+  }
+  .msg.ai{
+    margin-right:auto;
+    background:var(--bubble-ai);
+    color:#e7f0ff;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .meta { font-size:12px; color:var(--muted); margin-bottom:6px; }
+
+  .composer-wrap {
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+    align-items:flex-end;
+  }
+  textarea.composer {
+    flex:1;
+    min-height:72px;
+    max-height:220px;
+    resize:vertical;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,0.04);
+    background:#071224;
+    color:inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+    font-size:14px;
+    outline:none;
+  }
+  button.send {
+    background:var(--accent);
+    color:white;
+    border:0;
+    padding:10px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:700;
+  }
+  /* code block inside messages */
+  .code-block{
+    background:#021024;
+    border-radius:8px;
+    padding:10px;
+    margin-top:8px;
+    border:1px solid rgba(255,255,255,0.03);
+    position:relative;
+    font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+    font-size:13px;
+    overflow:auto;
+    white-space:pre;
+  }
+  .copy-btn{
+    position:absolute;
+    right:8px;
+    top:8px;
+    background:rgba(255,255,255,0.04);
+    border:0;color:var(--muted);
+    padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;
+  }
+
+  .muted-small{font-size:13px;color:var(--muted)}
+  @media (max-width:720px){
+    .key-screen{height:50vh}
+    .chat-panel{height:82vh}
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- Key entry screen -->
+    <div class="key-screen" id="keyScreen">
+      <div class="key-box">
+        <label class="simple-label">Enter API key</label>
+        <input id="apiKeyInput" class="apikey" type="password" placeholder="gsk_------" autocomplete="off" />
+        <div style="display:flex;justify-content:flex-end">
+          <button id="nextBtn" class="next-btn">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat screen (hidden initially) -->
+    <div class="chat-panel" id="chatPanel" style="display:none">
+      <div class="chat-top">
+        <div class="title">Groq AI</div>
+        <div class="top-controls">
+          <button class="reset-btn" id="resetBtn">Reset convo</button>
+        </div>
+      </div>
+
+      <div id="messages" aria-live="polite"></div>
+
+      <div class="composer-wrap">
+        <textarea id="composer" class="composer" placeholder="Type a message (Enter to send, Shift+Enter for newline)"></textarea>
+        <div style="display:flex;flex-direction:column;gap:8px;width:110px">
+          <button class="send" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(() => {
+  // CONFIG
+  const MODEL = 'openai/gpt-oss-20b';
+  const API_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+  const SYSTEM_PROMPT = "Answer in as few words as possible while staying clear and smart. Use easy words that are simple to understand. Never use slang, shorthand, or text shortcuts. Only give longer answers if the user asks or if a short answer would be confusing.";
+
+  // STORAGE KEYS
+  const STORAGE_KEY = 'gq_conv_v2';
+  const STORAGE_KEY_API = 'gq_api_v2';
+
+  // DOM
+  const keyScreen = document.getElementById('keyScreen');
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  const nextBtn = document.getElementById('nextBtn');
+
+  const chatPanel = document.getElementById('chatPanel');
+  const messagesEl = document.getElementById('messages');
+  const composer = document.getElementById('composer');
+  const sendBtn = document.getElementById('sendBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  // state
+  let apiKey = null;
+  let conversation = loadConversation(); // includes system as first item (not shown)
+
+  // initialize
+  // if there's saved key, populate the box
+  const savedKey = localStorage.getItem(STORAGE_KEY_API);
+  if (savedKey) {
+    apiKeyInput.value = savedKey;
+  }
+
+  // If a conversation exists and an API Key exists, skip to chat automatically
+  if (conversation && conversation.length && savedKey) {
+    apiKey = savedKey;
+    showChat();
+    renderConversation();
+  } else {
+    showKeyScreen();
+  }
+
+  // Helpers
+  function showKeyScreen(){
+    keyScreen.style.display = 'flex';
+    chatPanel.style.display = 'none';
+    apiKeyInput.focus();
+  }
+  function showChat(){
+    keyScreen.style.display = 'none';
+    chatPanel.style.display = 'flex';
+    composer.focus();
+  }
+
+  function loadConversation(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e){}
+    return []; // will add system prompt on send
+  }
+  function saveConversation(){
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversation));
+    } catch(e){}
+  }
+  function clearAll(){
+    conversation = [];
+    saveConversation();
+    localStorage.removeItem(STORAGE_KEY_API);
+  }
+
+  function pushMessage(role, content){
+    const item = { role, content, t: Date.now() };
+    conversation.push(item);
+    saveConversation();
+    return item;
+  }
+
+  function renderConversation(){
+    messagesEl.innerHTML = '';
+    for (const m of conversation) {
+      if (m.role === 'system') continue; // don't display system prompt
+      messagesEl.appendChild(renderMessage(m));
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function renderMessage(m){
+    const el = document.createElement('div');
+    el.className = 'msg ' + (m.role === 'user' ? 'user' : 'ai');
+    // meta
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const who = m.role === 'user' ? 'You' : 'Groq';
+    meta.textContent = `${who} • ${new Date(m.t || Date.now()).toLocaleTimeString()}`;
+    el.appendChild(meta);
+
+    // split by fenced code blocks
+    const content = m.content || '';
+    const parts = content.split(/(```[\s\S]*?```)/g);
+    for (const p of parts) {
+      if (!p) continue;
+      const mcode = p.match(/^```(?:([\w+-]+)\n)?([\s\S]*?)```$/);
+      if (mcode) {
+        const code = mcode[2].replace(/\n$/,'');
+        const block = document.createElement('div');
+        block.className = 'code-block';
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.onclick = async () => {
+          try { await navigator.clipboard.writeText(code); btn.textContent = 'Copied'; setTimeout(()=>btn.textContent='Copy',1100); }
+          catch(e){ btn.textContent = 'Nope'; setTimeout(()=>btn.textContent='Copy',1100); }
+        };
+        block.appendChild(btn);
+        const pre = document.createElement('pre');
+        pre.textContent = code;
+        block.appendChild(pre);
+        el.appendChild(block);
+      } else {
+        const para = document.createElement('div');
+        // inline code style for `code`
+        const html = escapeHtml(p).replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.02);padding:2px 6px;border-radius:4px;">$1</code>');
+        para.innerHTML = html;
+        el.appendChild(para);
+      }
+    }
+    return el;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // API call - prepends system prompt to every call (not shown)
+  async function callModel(messagesArr){
+    if (!apiKey) throw new Error('Missing API key');
+    const payload = {
+      model: MODEL,
+      messages: messagesArr,
+      max_tokens: 256,
+      temperature: 0.0
+    };
+    const res = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      let txt = '';
+      try { txt = await res.text(); } catch(e){ txt = res.status + ' error'; }
+      throw new Error('HTTP ' + res.status + ': ' + txt);
+    }
+    return await res.json();
+  }
+
+  // UI actions
+  nextBtn.addEventListener('click', ()=> {
+    const val = apiKeyInput.value.trim();
+    if (!val) return;
+    apiKey = val;
+    // save key locally (auto-save behavior requested)
+    try { localStorage.setItem(STORAGE_KEY_API, apiKey); } catch(e){}
+    showChat();
+    composer.focus();
+  });
+
+  // allow Enter to move to chat from key input
+  apiKeyInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nextBtn.click();
+    }
+  });
+
+  // send message
+  sendBtn.addEventListener('click', sendMessage);
+  composer.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  resetBtn.addEventListener('click', ()=> {
+    if (!confirm('Reset conversation and clear saved key?')) return;
+    clearAll();
+    apiKey = null;
+    apiKeyInput.value = '';
+    messagesEl.innerHTML = '';
+    showKeyScreen();
+  });
+
+  async function sendMessage(){
+    const txt = composer.value.trim();
+    if (!txt) return;
+    composer.value = '';
+    // ensure system prompt exists as first message in conversation
+    if (!conversation.length || conversation[0].role !== 'system' || conversation[0].content !== SYSTEM_PROMPT) {
+      // replace existing system or unshift
+      if (conversation.length && conversation[0].role === 'system') conversation[0].content = SYSTEM_PROMPT;
+      else conversation.unshift({ role: 'system', content: SYSTEM_PROMPT, t: Date.now() });
+      saveConversation();
+    }
+
+    // push user message and render
+    pushMessage('user', txt);
+    renderConversation();
+
+    // prepare messages for API (no timestamps)
+    const payloadMessages = conversation.map(m => ({ role: m.role, content: m.content }));
+
+    // show temporary thinking bubble
+    const thinking = { role: 'assistant', content: 'Thinking...', t: Date.now() };
+    conversation.push(thinking);
+    renderConversation();
+
+    try {
+      const resp = await callModel(payloadMessages);
+      // remove temporary thinking
+      conversation.pop();
+      // extract assistant text
+      let assistantText = '';
+      if (resp?.choices && resp.choices.length) {
+        assistantText = resp.choices[0].message?.content ?? resp.choices[0].text ?? JSON.stringify(resp.choices[0]);
+      } else if (resp?.output && Array.isArray(resp.output) && resp.output.length) {
+        assistantText = resp.output.map(o => (o.content && o.content[0] && o.content[0].text) || JSON.stringify(o)).join('\n');
+      } else {
+        assistantText = JSON.stringify(resp);
+      }
+      pushMessage('assistant', assistantText);
+      renderConversation();
+    } catch (err) {
+      // remove temporary thinking
+      if (conversation.length && conversation[conversation.length-1].content === 'Thinking...') conversation.pop();
+      pushMessage('assistant', 'Error: ' + (err && err.message ? err.message : String(err)));
+      renderConversation();
+      // if it's a CORS/network error and key exists, we still stay on chat screen; user can reset.
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
